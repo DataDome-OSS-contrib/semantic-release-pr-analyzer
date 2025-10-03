@@ -9,10 +9,15 @@ export async function analyzeCommits(strategy, pluginConfig, context) {
   debug("pluginConfig: " + JSON.stringify(pluginConfig));
 
   debug("commit: utils.getCommit()");
-  const commit = await getCommit(strategy, context.commits);
+  let commits = [];
+  let commit = undefined;
+  if (context?.commits) {
+    commit = await getCommit(strategy, context.commits);
+    commits.push(commit);
+  }
   debug("commit: " + JSON.stringify(commit));
-  debug("commit.message: " + commit.message);
+  // debug("commit.message: " + commit.message);
 
   debug("Run @semantic-release/commit-analyzer");
-  return ac(pluginConfig, { ...context, commits: [commit] });
+  return ac(pluginConfig, { ...context, commits });
 }
