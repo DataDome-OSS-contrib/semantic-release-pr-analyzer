@@ -47,13 +47,38 @@ const getFullCommit = (title, body) =>
 
 const getFirstCommit = (commits) => commits[commits.length - 1];
 
-const imitateCommit = (title, body) => ({
-  subject: title,
-  body,
-  message: getFullCommit(title, body),
-});
+const imitateCommit = (title, body, baseCommit) => {
+  const now = new Date();
+  // Use ISO strings for dates as they serialize better through streams
+  const nowISO = now.toISOString();
+  const defaultAuthor = { name: 'Unknown', email: 'unknown@example.com', date: nowISO };
 
-const getPullRequestAsCommit = async () => {
+  return {
+    subject: title,
+    body,
+    message: getFullCommit(title, body),
+    hash: baseCommit?.hash || 'virtual',
+    // Convert Date objects to ISO strings for stream compatibility
+    committerDate: baseCommit?.committerDate ?
+      (baseCommit.committerDate instanceof Date ? baseCommit.committerDate.toISOString() : baseCommit.committerDate) :
+      nowISO,
+    authorDate: baseCommit?.authorDate ?
+      (baseCommit.authorDate instanceof Date ? baseCommit.authorDate.toISOString() : baseCommit.authorDate) :
+      nowISO,
+    author: baseCommit?.author ? {
+      ...baseCommit.author,
+      date: baseCommit.author.date instanceof Date ? baseCommit.author.date.toISOString() : baseCommit.author.date
+    } : defaultAuthor,
+    committer: baseCommit?.committer ? {
+      ...baseCommit.committer,
+      date: baseCommit.committer.date instanceof Date ? baseCommit.committer.date.toISOString() : baseCommit.committer.date
+    } : defaultAuthor,
+    commit: baseCommit?.commit || { long: 'virtual', short: 'virtual' },
+    tree: baseCommit?.tree || { long: 'virtual', short: 'virtual' },
+  };
+};
+
+const getPullRequestAsCommit = async (baseCommit) => {
   const { token, prNumber, fullRepo } = getEnv();
 
   const [owner, repo] = fullRepo.split("/");
@@ -66,7 +91,7 @@ const getPullRequestAsCommit = async () => {
   });
 
   const { title, body } = pr.data;
-  return imitateCommit(title, body);
+  return imitateCommit(title, body, baseCommit);
 };
 
 const getGithubStrategyCommitBody = (commits) =>
@@ -82,10 +107,11 @@ const getGithubStrategyCommit = async (commits, prCommit) => {
     return getFirstCommit(commits);
   }
 
-  const { subject } = prCommit || (await getPullRequestAsCommit());
+  const firstCommit = getFirstCommit(commits);
+  const { subject } = prCommit || (await getPullRequestAsCommit(firstCommit));
   const body = getGithubStrategyCommitBody(commits);
   debug("Using the pull request message as a commit");
-  return imitateCommit(subject, body);
+  return imitateCommit(subject, body, firstCommit);
 };
 
 const getStrictGithubStrategyCommit = async (commits) => {
@@ -93,8 +119,8 @@ const getStrictGithubStrategyCommit = async (commits) => {
     throw new Error("No commits found");
   }
 
-  const prCommit = await getPullRequestAsCommit();
   const firstCommit = getFirstCommit(commits);
+  const prCommit = await getPullRequestAsCommit(firstCommit);
 
   if (eqSubject(prCommit, firstCommit)) {
     return getGithubStrategyCommit(commits, prCommit);
@@ -110,8 +136,8 @@ const getStrictPullRequestStrategyCommit = async (commits) => {
     throw new Error("No commits found");
   }
 
-  const prCommit = await getPullRequestAsCommit();
   const firstCommit = getFirstCommit(commits);
+  const prCommit = await getPullRequestAsCommit(firstCommit);
   if (eqFull(prCommit, firstCommit)) {
     return prCommit;
   }
@@ -135,7 +161,7 @@ const getRawCommit = async (strategy, commits) => {
     case STRATEGY.StrictGithub:
       return getStrictGithubStrategyCommit(commits);
     case STRATEGY.PullRequest:
-      return getPullRequestAsCommit();
+      return getPullRequestAsCommit(commits.length > 0 ? getFirstCommit(commits) : undefined);
     case STRATEGY.StrictPullRequest:
       return getStrictPullRequestStrategyCommit(commits);
     default:
