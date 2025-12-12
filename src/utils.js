@@ -101,10 +101,28 @@ const getGithubStrategyCommitBody = (commits) =>
       .reverse()
   );
 
+const normalizeCommitDates = (commit) => {
+  // Convert Date objects to ISO strings for stream compatibility
+  return {
+    ...commit,
+    committerDate: commit.committerDate instanceof Date ? commit.committerDate.toISOString() : commit.committerDate,
+    authorDate: commit.authorDate instanceof Date ? commit.authorDate.toISOString() : commit.authorDate,
+    author: commit.author ? {
+      ...commit.author,
+      date: commit.author.date instanceof Date ? commit.author.date.toISOString() : commit.author.date
+    } : commit.author,
+    committer: commit.committer ? {
+      ...commit.committer,
+      date: commit.committer.date instanceof Date ? commit.committer.date.toISOString() : commit.committer.date
+    } : commit.committer,
+  };
+};
+
 const getGithubStrategyCommit = async (commits, prCommit) => {
   if (commits.length === 1) {
     debug("Only single commit found, using it");
-    return getFirstCommit(commits);
+    const firstCommit = getFirstCommit(commits);
+    return normalizeCommitDates(firstCommit);
   }
 
   const firstCommit = getFirstCommit(commits);
