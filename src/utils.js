@@ -119,17 +119,17 @@ const normalizeCommitDates = (commit) => {
 };
 
 const getGithubStrategyCommit = async (commits, prCommit) => {
+  const firstCommit = getFirstCommit(commits);
+  const prData = prCommit || (await getPullRequestAsCommit(firstCommit));
+
   if (commits.length === 1) {
-    debug("Only single commit found, using it");
-    const firstCommit = getFirstCommit(commits);
-    return normalizeCommitDates(firstCommit);
+    debug("Single commit found, using PR title with commit body");
+    return imitateCommit(prData.subject, firstCommit.body, firstCommit);
   }
 
-  const firstCommit = getFirstCommit(commits);
-  const { subject } = prCommit || (await getPullRequestAsCommit(firstCommit));
   const body = getGithubStrategyCommitBody(commits);
   debug("Using the pull request message as a commit");
-  return imitateCommit(subject, body, firstCommit);
+  return imitateCommit(prData.subject, body, firstCommit);
 };
 
 const getStrictGithubStrategyCommit = async (commits) => {

@@ -58,7 +58,7 @@ describe("utils", () => {
     });
 
     describe("github strategy", () => {
-      it("returns commit data if there is a single commit", () => {
+      it("returns pull request data if there is a single commit", () => {
         setEnv();
         const strategy = "github";
 
@@ -70,13 +70,48 @@ describe("utils", () => {
           },
         ];
 
+        const mockFn = jest.fn(() =>
+          Promise.resolve({
+            data: {
+              title: "pr title",
+              body: "pr body",
+            },
+          })
+        );
+        setMockResult(mockFn);
+
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
-            subject: `Commit title (#${prNumber})`,
+          expect(commit).toMatchObject({
+            subject: `pr title (#${prNumber})`,
+            body: "description",
+            message: "pr title\n\ndescription",
+          });
+          expect(mockFn).toBeCalledTimes(1);
+        });
+      });
+
+      it("throws an error when the github API is not available (single commit)", () => {
+        setEnv();
+        const strategy = "github";
+
+        const commits = [
+          {
+            subject: "Commit title",
             body: "description",
             message: "Commit title\n\ndescription",
-          });
-        });
+          },
+        ];
+
+        setMockResult(() => Promise.reject(new Error("Where is it?")));
+
+        return getCommit(strategy, commits).then(
+          () => {
+            throw new Error("Should not be there");
+          },
+          (err) => {
+            expect(err.message).toBe("Where is it?");
+          }
+        );
       });
 
       it("returns pull request data if there is more than 1 commit", () => {
@@ -107,7 +142,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `pr title (#${prNumber})`,
             body: "* Commit title 1\n\ndescription 1\n\n* Commit title 2\n\ndescription 2",
             message:
@@ -171,7 +206,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `Commit title (#${prNumber})`,
             body: "description",
             message: "Commit title\n\ndescription",
@@ -208,7 +243,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `Commit title 1 (#${prNumber})`,
             body: "* Commit title 1\n\ndescription 1\n\n* Commit title 2\n\ndescription 2",
             message:
@@ -369,7 +404,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `pr title (#${prNumber})`,
             body: "pr body",
             message: "pr title\n\npr body",
@@ -406,7 +441,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `pr title (#${prNumber})`,
             body: "pr body",
             message: "pr title\n\npr body",
@@ -493,7 +528,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `Commit title (#${prNumber})`,
             body: "description",
             message: "Commit title\n\ndescription",
@@ -530,7 +565,7 @@ describe("utils", () => {
         setMockResult(mockFn);
 
         return getCommit(strategy, commits).then((commit) => {
-          expect(commit).toEqual({
+          expect(commit).toMatchObject({
             subject: `Commit title 1 (#${prNumber})`,
             body: "description 1",
             message: "Commit title 1\n\ndescription 1",
